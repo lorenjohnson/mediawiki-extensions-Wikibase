@@ -132,6 +132,7 @@
 		 * @protected
 		 */
 		_create: function () {
+			console.log('!!! Wikibase Code Tour: Snak View > _create()')
 			if ( this.options.locked === true || this.options.locked.property === true ) {
 				if ( !(
 					this.options.value instanceof datamodel.Snak || ( this.options.value && this.options.value.property )
@@ -227,6 +228,7 @@
 		 * @return {jQuery}
 		 */
 		_buildPropertySelector: function () {
+			console.log('!!! Wikibase Code Tour: Snak View > _buildPropertySelector()')
 			var self = this,
 				repoConfig = mw.config.get( 'wbRepo' ),
 				repoApiUrl = repoConfig.url + repoConfig.scriptPath + '/api.php';

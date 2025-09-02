@@ -152,6 +152,7 @@
 		 * @throws {Error} if a required option is not specified properly.
 		 */
 		_create: function () {
+			console.log('!!! Wikibase Code Tour: Statement View > _create()')
 			if ( !this.options.getReferenceListItemAdapter
 				|| !this.options.buildSnakView
 				|| !this.options.entityIdPlainFormatter
@@ -226,6 +227,7 @@
 		 * @private
 		 */
 		_createMainSnak: function () {
+			console.log('!!! Wikibase Code Tour: Statement View > _createMainSnak()')
 			if ( this.$mainSnak.data( 'snakview' ) ) {
 				this._mainSnakSnakView = this.$mainSnak.data( 'snakview' );
 				return;

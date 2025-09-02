@@ -82,6 +82,7 @@
 		 * @throws {Error} if a required option is not specified properly.
 		 */
 		_create: function () {
+			console.log('!!! Wikibase Code Tour: Statement List View > _create()')
 			if ( !this.options.getListItemAdapter
 				|| ( this.options.value && !( this.options.value instanceof datamodel.StatementList ) )
 			) {
@@ -195,6 +196,7 @@
 		 * @return {jQuery} return.done.$statementview
 		 */
 		enterNewItem: function () {
+			console.log('!!! Wikibase Code Tour: Statement List View > enterNewItem()')
 			return this._listview.enterNewItem();
 		},
 

@@ -87,6 +87,7 @@
 		 * @throws {Error} if a required option is not specified properly.
 		 */
 		_create: function () {
+			console.log('!!! Wikibase Code Tour: Snak List View > _create()')
 			this.options.value = this.options.value || new datamodel.SnakList();
 
 			if ( !this.options.getListItemAdapter || !( this.options.value instanceof datamodel.SnakList ) ) {
@@ -108,6 +109,7 @@
 		 * @private
 		 */
 		_createListView: function () {
+			console.log('!!! Wikibase Code Tour: Snak List View > _createListView()')
 			var self = this,
 				$listviewParent = null;
 

@@ -149,6 +149,7 @@
 		 * @protected
 		 */
 		_create: function () {
+			console.log('!!! Wikibase Code Tour: Entity Selector > _create()')
 			var self = this;
 
 			this._cache = {};
@@ -251,6 +252,7 @@
 		 * @return {Object}
 		 */
 		_getSearchApiParameters: function ( term ) {
+			console.log('!!! Wikibase Code Tour: Entity Selector > _getSearchApiParameters()', term)
 			var data = {
 				action: 'wbsearchentities',
 				search: term,
@@ -283,6 +285,7 @@
 		 * @return {Function}
 		 */
 		_initDefaultSource: function () {
+			console.log('!!! Wikibase Code Tour: Entity Selector > _initDefaultSource()')
 			var self = this;
 
 			return function ( term ) {
@@ -485,6 +488,7 @@
 		 * @return {jQuery}
 		 */
 		_createLabelFromSuggestion: function ( entityStub ) {
+			console.log('!!! Wikibase Code Tour: Entity Selector > _createLabelFromSuggestion()')
 			var $suggestion = $( '<span>' ).addClass( 'ui-entityselector-itemcontent' ),
 				$label = $( '<span>' ).addClass( 'ui-entityselector-label' ),
 				$description = $();
@@ -527,6 +531,7 @@
 		 * @return {jQuery.wikibase.entityselector.Item}
 		 */
 		_createMenuItemFromSuggestion: function ( entityStub ) {
+			console.log('!!! Wikibase Code Tour: Entity Selector > _createMenuItemFromSuggestion()')
 			var $label = this._createLabelFromSuggestion( entityStub ),
 				value;
 
@@ -681,6 +686,7 @@
 		 * @param {Object} entityStub
 		 */
 		_select: function ( entityStub ) {
+			console.log('!!! Wikibase Code Tour: Entity Selector > _select()', entityStub)
 			var id = entityStub && entityStub.id;
 			this._selectedEntity = entityStub;
 			if ( id ) {
