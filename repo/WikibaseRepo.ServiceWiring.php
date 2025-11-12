@@ -176,8 +176,6 @@ use Wikibase\Repo\EntityIdLabelFormatterFactory;
 use Wikibase\Repo\EntityReferenceExtractors\EntityReferenceExtractorDelegator;
 use Wikibase\Repo\EntityReferenceExtractors\StatementEntityReferenceExtractor;
 use Wikibase\Repo\EntityTypesConfigFeddyPropsAugmenter;
-use Wikibase\Repo\Federation\BagOStuffSimpleCacheAdapter;
-use Wikibase\Repo\Federation\RemoteEntityCache;
 use Wikibase\Repo\Federation\RemoteEntityIdParser;
 use Wikibase\Repo\Federation\RemoteEntityIdValueFormatter;
 use Wikibase\Repo\Federation\RemoteEntityLookup;
@@ -1813,16 +1811,6 @@ return [
 			$lbFactory,
 			$lbFactory->getLocalDomainID()
 		);
-	},
-
-	'WikibaseRepo.RemoteEntityCache' => function ( MediaWikiServices $services ): RemoteEntityCache {
-		$settings = WikibaseRepo::getSettings( $services );
-
-		// Local server cache is fine for MVP; can be swapped to WAN cache later.
-		$bagOStuff = $services->getLocalServerObjectCache();
-		$psrCache = new BagOStuffSimpleCacheAdapter( $bagOStuff );
-
-		return new RemoteEntityCache( $psrCache, $settings );
 	},
 
 	'WikibaseRepo.RemoteEntityLookup' => function ( MediaWikiServices $services ): RemoteEntityLookup {
