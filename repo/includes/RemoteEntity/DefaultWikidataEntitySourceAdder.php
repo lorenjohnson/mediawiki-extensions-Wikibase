@@ -69,7 +69,3 @@ class DefaultWikidataEntitySourceAdder {
 		return new EntitySourceDefinitions( $sources, $this->subTypeMapper );
 	}
 }
-
-diff --git a/repo/includes/RemoteEntity/Hooks/RemoteEntitySearchHelperCallbacksHookHandler.php b/repo/includes/RemoteEntity/Hooks/RemoteEntitySearchHelperCallbacksHookHandler.php
-index abef2bc47b..dc533c8371 100644
---- a/repo/includes/RemoteEntity/Hooks/RemoteEntitySearchHelperCallbacksHookHandler.php

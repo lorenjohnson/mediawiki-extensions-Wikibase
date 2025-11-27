@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 namespace Wikibase\Repo\RemoteEntity;
 
 use Wikibase\Repo\Api\EntitySearchHelper;
+use Wikibase\Repo\Api\SearchEntities;
 use Wikibase\Repo\WikibaseRepo;
 use Wikibase\Lib\Interactors\TermSearchResult;
 use Wikibase\Lib\SettingsArray;
@@ -138,9 +139,18 @@ class RemoteEntitySearchHelper implements EntitySearchHelper {
 	}
 
 	private function isRemoteSearchEnabled(): bool {
-		if ( !$this->settings->hasSetting( 'federatedValuesEnabled' ) ) {
+		// Check if federated values feature is enabled globally
+		if ( !(bool)$this->settings->getSetting( 'federatedValuesEnabled' ) ) {
 			return false;
 		}
-		return (bool)$this->settings->getSetting( 'federatedValuesEnabled' );
+
+		// Check if the current request explicitly requested remote entities
+		// This prevents remote results from appearing in global search, scoped search, etc.
+		// Only value searches (statement values, qualifiers, references) should pass remoteentities=1
+		if ( SearchEntities::$remoteEntitiesRequested !== true ) {
+			return false;
+		}
+
+		return true;
 	}
 }

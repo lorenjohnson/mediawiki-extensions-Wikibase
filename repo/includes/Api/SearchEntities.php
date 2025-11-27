@@ -308,6 +308,11 @@ class SearchEntities extends ApiBase {
 	}
 
 	/**
+	 * @var bool|null Static flag to communicate remoteentities param to RemoteEntitySearchHelper
+	 */
+	public static ?bool $remoteEntitiesRequested = null;
+
+	/**
 	 * @throws ApiUsageException
 	 * @throws EntitySearchException
 	 */
@@ -315,6 +320,9 @@ class SearchEntities extends ApiBase {
 		$this->getMain()->setCacheMode( 'public' );
 
 		$params = $this->extractRequestParams();
+
+		// Set static flag for RemoteEntitySearchHelper to check
+		self::$remoteEntitiesRequested = $params['remoteentities'] ?? false;
 
 		$results = $this->getSearchResults( $params );
 
@@ -426,6 +434,10 @@ class SearchEntities extends ApiBase {
 				ParamValidator::PARAM_TYPE => array_keys( $this->searchProfiles ),
 				ParamValidator::PARAM_DEFAULT => array_key_first( $this->searchProfiles ),
 				self::PARAM_HELP_MSG_PER_VALUE => [],
+			],
+			'remoteentities' => [
+				ParamValidator::PARAM_TYPE => 'boolean',
+				ParamValidator::PARAM_DEFAULT => false,
 			],
 		];
 	}

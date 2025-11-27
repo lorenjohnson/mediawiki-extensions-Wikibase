@@ -1305,7 +1305,8 @@
 			"class": "Wikibase\\Repo\\RemoteEntity\\Hooks\\RemoteEntitySearchHelperCallbacksHookHandler",
 			"services": [
 				"WikibaseRepo.RemoteEntity.RemoteEntitySearchClient",
-				"WikibaseRepo.Settings"
+				"WikibaseRepo.Settings",
+				"WikibaseRepo.EntitySourceDefinitions"
 			]
 		},
 		"RemoteEntityStorage": {
