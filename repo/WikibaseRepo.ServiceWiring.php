@@ -176,6 +176,7 @@ use Wikibase\Repo\EntityIdLabelFormatterFactory;
 use Wikibase\Repo\EntityReferenceExtractors\EntityReferenceExtractorDelegator;
 use Wikibase\Repo\EntityReferenceExtractors\StatementEntityReferenceExtractor;
 use Wikibase\Repo\EntityTypesConfigFeddyPropsAugmenter;
+use Wikibase\Repo\RemoteEntity\DefaultWikidataEntitySourceAdder;
 use Wikibase\Repo\FederatedProperties\ApiServiceFactory;
 use Wikibase\Repo\FederatedProperties\BaseUriExtractor;
 use Wikibase\Repo\FederatedProperties\DefaultFederatedPropertiesEntitySourceAdder;
@@ -1037,13 +1038,21 @@ return [
 			$subEntityTypesMapper
 		);
 
+		// Add default Wikidata source for federated properties if needed
 		$fedPropsSourceAdder = new DefaultFederatedPropertiesEntitySourceAdder(
 			$settings->getSetting( 'federatedPropertiesEnabled' ),
 			$settings->getSetting( 'federatedPropertiesSourceScriptUrl' ),
 			$subEntityTypesMapper
 		);
+		$entitySourceDefinitions = $fedPropsSourceAdder->addDefaultIfRequired( $entitySourceDefinitions );
 
-		return $fedPropsSourceAdder->addDefaultIfRequired( $entitySourceDefinitions );
+		// Add default Wikidata source for federated values if needed
+		$wikidataSourceAdder = new DefaultWikidataEntitySourceAdder(
+			$settings->getSetting( 'federatedValuesEnabled' ),
+			$subEntityTypesMapper
+		);
+
+		return $wikidataSourceAdder->addDefaultIfRequired( $entitySourceDefinitions );
 	},
 
 	'WikibaseRepo.EntitySourceLookup' => function ( MediaWikiServices $services ): EntitySourceLookup {
