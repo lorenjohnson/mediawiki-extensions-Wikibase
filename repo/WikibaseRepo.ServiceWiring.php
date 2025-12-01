@@ -177,7 +177,9 @@ use Wikibase\Repo\EntityReferenceExtractors\EntityReferenceExtractorDelegator;
 use Wikibase\Repo\EntityReferenceExtractors\StatementEntityReferenceExtractor;
 use Wikibase\Repo\EntityTypesConfigFeddyPropsAugmenter;
 use Wikibase\Repo\RemoteEntity\DefaultWikidataEntitySourceAdder;
+use Wikibase\Repo\RemoteEntity\RemoteEntityIdParser;
 use Wikibase\Repo\RemoteEntity\RemoteEntitySearchClient;
+use Wikibase\Repo\RemoteEntity\RemoteEntityStore;
 use Wikibase\Repo\FederatedProperties\ApiServiceFactory;
 use Wikibase\Repo\FederatedProperties\BaseUriExtractor;
 use Wikibase\Repo\FederatedProperties\DefaultFederatedPropertiesEntitySourceAdder;
@@ -258,6 +260,7 @@ use Wikibase\View\ViewFactory;
 use Wikibase\View\Wbui2025FeatureFlag;
 use Wikimedia\ObjectCache\HashBagOStuff;
 use Wikimedia\ObjectFactory\ObjectFactory;
+use Wikimedia\Rdbms\LBFactory;
 
 /** @phpcs-require-sorted-array */
 return [
@@ -829,20 +832,32 @@ return [
 
 	'WikibaseRepo.EntityIdParser' => function ( MediaWikiServices $services ): EntityIdParser {
 		$settings = WikibaseRepo::getSettings( $services );
-		$dispatchingEntityIdParser = new DispatchingEntityIdParser(
-			WikibaseRepo::getEntityTypeDefinitions( $services )->getEntityIdBuilders()
-		);
 
+		$entityTypeDefinitions = WikibaseRepo::getEntityTypeDefinitions( $services );
+		$entityIdBuilders = $entityTypeDefinitions->getEntityIdBuilders();
+
+		// Base parser: knows how to parse local Q/P/etc.
+		$parser = new DispatchingEntityIdParser( $entityIdBuilders );
+
+		// If federated properties are enabled, wrap the parser.
+		// TODO: FederatedValues - If we don't remove federatedProperties with the federatedValues
+		// feature release then make sure this doesn't get overridden / isn't mutually exclusive
+		// with the new feature
 		if ( $settings->getSetting( 'federatedPropertiesEnabled' ) ) {
 			$entitySourceDefinitions = WikibaseRepo::getEntitySourceDefinitions( $services );
-			return new FederatedPropertiesAwareDispatchingEntityIdParser(
-				$dispatchingEntityIdParser,
+			$parser = new FederatedPropertiesAwareDispatchingEntityIdParser(
+				$parser,
 				new BaseUriExtractor(),
 				$entitySourceDefinitions
 			);
 		}
 
-		return $dispatchingEntityIdParser;
+		// If general federation (for values) is enabled, wrap again for remote entity ids.
+		if ( $settings->getSetting( 'federatedValuesEnabled' ) ) {
+			$parser = new RemoteEntityIdParser( $parser );
+		}
+
+		return $parser;
 	},
 
 	'WikibaseRepo.EntityLinkFormatterFactory' => function ( MediaWikiServices $services ): EntityLinkFormatterFactory {
@@ -1007,13 +1022,17 @@ return [
 
 	'WikibaseRepo.EntitySourceAndTypeDefinitions' => function ( MediaWikiServices $services ): EntitySourceAndTypeDefinitions {
 		$entityTypes = WikibaseRepo::getEntityTypeDefinitionsArray( $services );
+		$settings = WikibaseRepo::getSettings( $services );
 
 		$entityTypeDefinitionsBySourceType = [ DatabaseEntitySource::TYPE => new EntityTypeDefinitions( $entityTypes ) ];
 
-		if ( WikibaseRepo::getSettings( $services )->getSetting( 'federatedPropertiesEnabled' ) ) {
+		if ( $settings->getSetting( 'federatedPropertiesEnabled' ) ) {
 			$entityTypeDefinitionsBySourceType[ApiEntitySource::TYPE] = new EntityTypeDefinitions(
 				EntityTypesConfigFeddyPropsAugmenter::factory()->override( $entityTypes )
 			);
+		} elseif ( $settings->getSetting( 'federatedValuesEnabled' ) ) {
+			// Federated values also uses ApiEntitySource for remote entity sources
+			$entityTypeDefinitionsBySourceType[ApiEntitySource::TYPE] = new EntityTypeDefinitions( $entityTypes );
 		}
 
 		return new EntitySourceAndTypeDefinitions(
@@ -1773,6 +1792,14 @@ return [
 				$services->getHttpRequestFactory(),
 				WikibaseRepo::getEntitySourceDefinitions( $services )
 			);
+	},
+
+	'WikibaseRepo.RemoteEntityStore' => function ( MediaWikiServices $services ): RemoteEntityStore {
+		/** @var LBFactory $lbFactory */
+		$lbFactory = $services->getDBLoadBalancerFactory();
+		$settings = WikibaseRepo::getSettings( $services );
+
+		return new RemoteEntityStore( $lbFactory, $settings );
 	},
 
 	'WikibaseRepo.RepoDomainDbFactory' => function ( MediaWikiServices $services ): RepoDomainDbFactory {
