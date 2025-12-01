@@ -177,6 +177,7 @@ use Wikibase\Repo\EntityReferenceExtractors\EntityReferenceExtractorDelegator;
 use Wikibase\Repo\EntityReferenceExtractors\StatementEntityReferenceExtractor;
 use Wikibase\Repo\EntityTypesConfigFeddyPropsAugmenter;
 use Wikibase\Repo\RemoteEntity\DefaultWikidataEntitySourceAdder;
+use Wikibase\Repo\RemoteEntity\RemoteEntitySearchClient;
 use Wikibase\Repo\FederatedProperties\ApiServiceFactory;
 use Wikibase\Repo\FederatedProperties\BaseUriExtractor;
 use Wikibase\Repo\FederatedProperties\DefaultFederatedPropertiesEntitySourceAdder;
@@ -1764,6 +1765,14 @@ return [
 
 	'WikibaseRepo.ReferenceNormalizer' => function ( MediaWikiServices $services ): ReferenceNormalizer {
 		return new ReferenceNormalizer( WikibaseRepo::getSnakNormalizer( $services ) );
+	},
+
+	'WikibaseRepo.RemoteEntitySearchClient' =>
+		static function ( MediaWikiServices $services ): RemoteEntitySearchClient {
+			return new RemoteEntitySearchClient(
+				$services->getHttpRequestFactory(),
+				WikibaseRepo::getEntitySourceDefinitions( $services )
+			);
 	},
 
 	'WikibaseRepo.RepoDomainDbFactory' => function ( MediaWikiServices $services ): RepoDomainDbFactory {
