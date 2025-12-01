@@ -178,6 +178,8 @@ use Wikibase\Repo\EntityReferenceExtractors\StatementEntityReferenceExtractor;
 use Wikibase\Repo\EntityTypesConfigFeddyPropsAugmenter;
 use Wikibase\Repo\RemoteEntity\DefaultWikidataEntitySourceAdder;
 use Wikibase\Repo\RemoteEntity\RemoteEntityIdParser;
+use Wikibase\Repo\RemoteEntity\RemoteEntityIdValueFormatter;
+use Wikibase\Repo\RemoteEntity\RemoteEntityLookup;
 use Wikibase\Repo\RemoteEntity\RemoteEntitySearchClient;
 use Wikibase\Repo\RemoteEntity\RemoteEntityStore;
 use Wikibase\Repo\FederatedProperties\ApiServiceFactory;
@@ -1786,6 +1788,14 @@ return [
 		return new ReferenceNormalizer( WikibaseRepo::getSnakNormalizer( $services ) );
 	},
 
+	'WikibaseRepo.RemoteEntityLookup' => function ( MediaWikiServices $services ): RemoteEntityLookup {
+		$httpFactory = $services->getHttpRequestFactory();
+		$entitySourceDefinitions = WikibaseRepo::getEntitySourceDefinitions( $services );
+		$store = $services->get( 'WikibaseRepo.RemoteEntityStore' );
+
+		return new RemoteEntityLookup( $httpFactory, $entitySourceDefinitions, $store );
+	},
+
 	'WikibaseRepo.RemoteEntitySearchClient' =>
 		static function ( MediaWikiServices $services ): RemoteEntitySearchClient {
 			return new RemoteEntitySearchClient(
@@ -2155,6 +2165,57 @@ return [
 	'WikibaseRepo.ValueFormatterFactory' => function ( MediaWikiServices $services ): OutputFormatValueFormatterFactory {
 		$formatterFactoryCBs = WikibaseRepo::getDataTypeDefinitions( $services )
 			->getFormatterFactoryCallbacks( DataTypeDefinitions::PREFIXED_MODE );
+
+		$settings = WikibaseRepo::getSettings( $services );
+
+		// If federation is off, keep core behavior.
+		if ( !$settings->getSetting( 'federatedValuesEnabled' ) ) {
+			return new OutputFormatValueFormatterFactory(
+				$formatterFactoryCBs,
+				$services->getContentLanguage(),
+				WikibaseRepo::getLanguageFallbackChainFactory( $services )
+			);
+		}
+
+		$remoteLookup = $services->get( 'WikibaseRepo.RemoteEntityLookup' );
+
+		// Wrap only the wikibase-entityid formatter factory callbacks
+		foreach ( $formatterFactoryCBs as $dataTypeId => $callback ) {
+			$formatterFactoryCBs[$dataTypeId] = static function ( ...$args ) use ( $callback, $remoteLookup, $services, $dataTypeId ) {
+				// Call the original callback with whatever it expects.
+				$innerFormatter = $callback( ...$args );
+
+				// Only care about entity-id value formatters.
+				if ( !$innerFormatter instanceof EntityIdValueFormatter ) {
+					return $innerFormatter;
+				}
+
+				// First argument is the format (see WikibaseValueFormatterBuilders::newEntityIdFormatter)
+				$format = $args[0] ?? SnakFormatter::FORMAT_HTML;
+
+				// Derive language priorities from site config, not from $args.
+				$contLang = $services->getContentLanguage();
+				$contLangCode = $contLang->getCode();
+
+				// Use the same fallback chain as the rest of Wikibase.
+				$fallbackChainFactory = WikibaseRepo::getLanguageFallbackChainFactory( $services );
+				$fallbackChain = $fallbackChainFactory->newFromLanguage( $contLang );
+				$fallbackCodes = $fallbackChain->getFetchLanguageCodes();
+
+				$langCodes = array_values( array_unique( array_merge(
+					[ $contLangCode ],
+					$fallbackCodes,
+					[ 'en' ]
+				) ) );
+
+				return new RemoteEntityIdValueFormatter(
+					$innerFormatter,
+					$remoteLookup,
+					$langCodes,
+					$format
+				);
+			};
+		}
 
 		return new OutputFormatValueFormatterFactory(
 			$formatterFactoryCBs,

@@ -1301,6 +1301,15 @@
 		"ViewHooks": {
 			"class": "\\Wikibase\\View\\ViewHooks"
 		},
+		"RemoteEntityStorage": {
+			"class": "Wikibase\\Repo\\RemoteEntity\\Hooks\\RemoteEntityStorageHookHandler",
+			"factory": "Wikibase\\Repo\\RemoteEntity\\Hooks\\RemoteEntityStorageHookHandler::factory",
+			"services": [
+				"WikibaseRepo.EntityContentFactory",
+				"WikibaseRepo.RemoteEntityLookup",
+				"WikibaseRepo.Settings"
+			]
+		},
 		"WikibaseRepoEntitySearchHelperCallbacks": {
 			"class": "Wikibase\\Repo\\RemoteEntity\\Hooks\\RemoteEntitySearchHelperCallbacksHookHandler",
 			"services": [
@@ -1345,6 +1354,7 @@
 			"DeleteDispatcher",
 			"EntityDataPurger"
 		],
+		"PageSaveComplete": "RemoteEntityStorage",
 		"PageUndeleteComplete": "PageDeleteHooksHandler",
 		"PageHistoryLineEnding": "RepoHooks",
 		"PageHistoryPager::doBatchLookups": "PageHistoryPagerHookHandler",
