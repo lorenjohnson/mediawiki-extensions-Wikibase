@@ -9,6 +9,7 @@ use ValueValidators\ValueValidator;
 use Wikibase\DataModel\Entity\EntityId;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
+use Wikibase\Repo\RemoteEntity\RemoteEntityId;
 
 /**
  * EntityExistsValidator checks that a given entity exists.
@@ -61,6 +62,13 @@ class EntityExistsValidator implements ValueValidator {
 				'bad-entity-type',
 				[ $actualType ]
 			);
+		}
+
+		if ( $value instanceof RemoteEntityId ) {
+			// For federated values, local EntityLookup cannot resolve them.
+			// We only enforce the entityType constraint above; if that's fine,
+			// treat the remote entity as "existing" for the purpose of this validator.
+			return !$errors ? Result::newSuccess() : Result::newError( $errors );
 		}
 
 		if ( !$this->entityLookup->hasEntity( $value ) ) {

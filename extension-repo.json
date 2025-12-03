@@ -1300,6 +1300,23 @@
 		},
 		"ViewHooks": {
 			"class": "\\Wikibase\\View\\ViewHooks"
+		},
+		"RemoteEntityStorage": {
+			"class": "Wikibase\\Repo\\RemoteEntity\\Hooks\\RemoteEntityStorageHookHandler",
+			"factory": "Wikibase\\Repo\\RemoteEntity\\Hooks\\RemoteEntityStorageHookHandler::factory",
+			"services": [
+				"WikibaseRepo.EntityContentFactory",
+				"WikibaseRepo.RemoteEntityLookup",
+				"WikibaseRepo.Settings"
+			]
+		},
+		"WikibaseRepoEntitySearchHelperCallbacks": {
+			"class": "Wikibase\\Repo\\RemoteEntity\\Hooks\\RemoteEntitySearchHelperCallbacksHookHandler",
+			"services": [
+				"WikibaseRepo.RemoteEntitySearchClient",
+				"WikibaseRepo.Settings",
+				"WikibaseRepo.EntitySourceDefinitions"
+			]
 		}
 	},
 	"Hooks": {
@@ -1337,6 +1354,7 @@
 			"DeleteDispatcher",
 			"EntityDataPurger"
 		],
+		"PageSaveComplete": "RemoteEntityStorage",
 		"PageUndeleteComplete": "PageDeleteHooksHandler",
 		"PageHistoryLineEnding": "RepoHooks",
 		"PageHistoryPager::doBatchLookups": "PageHistoryPagerHookHandler",
@@ -1362,7 +1380,10 @@
 			"ViewHooks"
 		],
 		"VectorSearchResourceLoaderConfig": "RepoHooks",
-		"WikibaseContentLanguages": "RepoHooks"
+		"WikibaseContentLanguages": "RepoHooks",
+		"WikibaseRepoEntitySearchHelperCallbacks":[
+			"WikibaseRepoEntitySearchHelperCallbacks"
+		]
 	},
 	"RateLimits": {
 		"wikibase-idgenerator": {

@@ -164,6 +164,12 @@ final class RepoHooks implements
 			}
 		}
 
+		if ( $settings->getSetting( 'federatedValuesEnabled' ) ) {
+			// Load entity-search badges JS on all repo pages
+			// TODO: FederatedValues - scope to only load on typeahead
+			$out->addModules( [ 'wikibase.remoteentity.entityselector' ] );
+		}
+
 		if ( $settings->getSetting( 'wikibasePingback' ) ) {
 			WikibasePingback::schedulePingback();
 		}
@@ -895,6 +901,7 @@ final class RepoHooks implements
 					'wikibase.getLanguageNameByCode',
 				],
 			],
+
 			'wikibase.special.languageLabelDescriptionAliases' => $moduleTemplate + [
 				'scripts' => [
 					'resources/wikibase.special/wikibase.special.languageLabelDescriptionAliases.js',
@@ -959,6 +966,22 @@ final class RepoHooks implements
 			$modules['wikibase.vector.scopedTypeaheadSearchStyles'] = $moduleTemplate + [
 				"styles" => [
 					'resources/wikibase.vector.scopedTypeaheadSearch.less',
+				],
+			];
+		}
+
+		if ( $settings->getSetting( 'federatedValuesEnabled' ) ) {
+			$modules['wikibase.remoteentity.entityselector'] = $moduleTemplate + [
+				'scripts' => [
+					'resources/wikibase.remoteentity/wikibase.remoteentity.entityselector.js',
+				],
+				'styles' => [
+					// optional, if you have styling for the badges / headers:
+					'resources/wikibase.remoteentity/wikibase.remoteentity.entityselector.less',
+				],
+				'dependencies' => [
+			    'jquery.wikibase.entityselector',
+    			'mediawiki.util',
 				],
 			];
 		}

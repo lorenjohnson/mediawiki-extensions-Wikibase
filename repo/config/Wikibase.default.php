@@ -16,6 +16,13 @@ global $wgCdnMaxAge;
 
 /** @phan-file-suppress PhanUnextractableAnnotation */
 return [
+	// feature flag for federated values
+	'federatedValuesEnabled' => false,
+
+	// Optional TTL for remote entity cache (seconds).
+	// When null or 0, cached entities never expire automatically.
+	'remoteEntityCacheTTL' => null,
+
 	// feature flag for federated properties
 	'federatedPropertiesEnabled' => false,
 

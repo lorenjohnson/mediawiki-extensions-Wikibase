@@ -176,6 +176,12 @@ use Wikibase\Repo\EntityIdLabelFormatterFactory;
 use Wikibase\Repo\EntityReferenceExtractors\EntityReferenceExtractorDelegator;
 use Wikibase\Repo\EntityReferenceExtractors\StatementEntityReferenceExtractor;
 use Wikibase\Repo\EntityTypesConfigFeddyPropsAugmenter;
+use Wikibase\Repo\RemoteEntity\DefaultWikidataEntitySourceAdder;
+use Wikibase\Repo\RemoteEntity\RemoteEntityIdParser;
+use Wikibase\Repo\RemoteEntity\RemoteEntityIdValueFormatter;
+use Wikibase\Repo\RemoteEntity\RemoteEntityLookup;
+use Wikibase\Repo\RemoteEntity\RemoteEntitySearchClient;
+use Wikibase\Repo\RemoteEntity\RemoteEntityStore;
 use Wikibase\Repo\FederatedProperties\ApiServiceFactory;
 use Wikibase\Repo\FederatedProperties\BaseUriExtractor;
 use Wikibase\Repo\FederatedProperties\DefaultFederatedPropertiesEntitySourceAdder;
@@ -256,6 +262,7 @@ use Wikibase\View\ViewFactory;
 use Wikibase\View\Wbui2025FeatureFlag;
 use Wikimedia\ObjectCache\HashBagOStuff;
 use Wikimedia\ObjectFactory\ObjectFactory;
+use Wikimedia\Rdbms\LBFactory;
 
 /** @phpcs-require-sorted-array */
 return [
@@ -827,20 +834,32 @@ return [
 
 	'WikibaseRepo.EntityIdParser' => function ( MediaWikiServices $services ): EntityIdParser {
 		$settings = WikibaseRepo::getSettings( $services );
-		$dispatchingEntityIdParser = new DispatchingEntityIdParser(
-			WikibaseRepo::getEntityTypeDefinitions( $services )->getEntityIdBuilders()
-		);
 
+		$entityTypeDefinitions = WikibaseRepo::getEntityTypeDefinitions( $services );
+		$entityIdBuilders = $entityTypeDefinitions->getEntityIdBuilders();
+
+		// Base parser: knows how to parse local Q/P/etc.
+		$parser = new DispatchingEntityIdParser( $entityIdBuilders );
+
+		// If federated properties are enabled, wrap the parser.
+		// TODO: FederatedValues - If we don't remove federatedProperties with the federatedValues
+		// feature release then make sure this doesn't get overridden / isn't mutually exclusive
+		// with the new feature
 		if ( $settings->getSetting( 'federatedPropertiesEnabled' ) ) {
 			$entitySourceDefinitions = WikibaseRepo::getEntitySourceDefinitions( $services );
-			return new FederatedPropertiesAwareDispatchingEntityIdParser(
-				$dispatchingEntityIdParser,
+			$parser = new FederatedPropertiesAwareDispatchingEntityIdParser(
+				$parser,
 				new BaseUriExtractor(),
 				$entitySourceDefinitions
 			);
 		}
 
-		return $dispatchingEntityIdParser;
+		// If general federation (for values) is enabled, wrap again for remote entity ids.
+		if ( $settings->getSetting( 'federatedValuesEnabled' ) ) {
+			$parser = new RemoteEntityIdParser( $parser );
+		}
+
+		return $parser;
 	},
 
 	'WikibaseRepo.EntityLinkFormatterFactory' => function ( MediaWikiServices $services ): EntityLinkFormatterFactory {
@@ -1005,13 +1024,17 @@ return [
 
 	'WikibaseRepo.EntitySourceAndTypeDefinitions' => function ( MediaWikiServices $services ): EntitySourceAndTypeDefinitions {
 		$entityTypes = WikibaseRepo::getEntityTypeDefinitionsArray( $services );
+		$settings = WikibaseRepo::getSettings( $services );
 
 		$entityTypeDefinitionsBySourceType = [ DatabaseEntitySource::TYPE => new EntityTypeDefinitions( $entityTypes ) ];
 
-		if ( WikibaseRepo::getSettings( $services )->getSetting( 'federatedPropertiesEnabled' ) ) {
+		if ( $settings->getSetting( 'federatedPropertiesEnabled' ) ) {
 			$entityTypeDefinitionsBySourceType[ApiEntitySource::TYPE] = new EntityTypeDefinitions(
 				EntityTypesConfigFeddyPropsAugmenter::factory()->override( $entityTypes )
 			);
+		} elseif ( $settings->getSetting( 'federatedValuesEnabled' ) ) {
+			// Federated values also uses ApiEntitySource for remote entity sources
+			$entityTypeDefinitionsBySourceType[ApiEntitySource::TYPE] = new EntityTypeDefinitions( $entityTypes );
 		}
 
 		return new EntitySourceAndTypeDefinitions(
@@ -1037,13 +1060,21 @@ return [
 			$subEntityTypesMapper
 		);
 
+		// Add default Wikidata source for federated properties if needed
 		$fedPropsSourceAdder = new DefaultFederatedPropertiesEntitySourceAdder(
 			$settings->getSetting( 'federatedPropertiesEnabled' ),
 			$settings->getSetting( 'federatedPropertiesSourceScriptUrl' ),
 			$subEntityTypesMapper
 		);
+		$entitySourceDefinitions = $fedPropsSourceAdder->addDefaultIfRequired( $entitySourceDefinitions );
 
-		return $fedPropsSourceAdder->addDefaultIfRequired( $entitySourceDefinitions );
+		// Add default Wikidata source for federated values if needed
+		$wikidataSourceAdder = new DefaultWikidataEntitySourceAdder(
+			$settings->getSetting( 'federatedValuesEnabled' ),
+			$subEntityTypesMapper
+		);
+
+		return $wikidataSourceAdder->addDefaultIfRequired( $entitySourceDefinitions );
 	},
 
 	'WikibaseRepo.EntitySourceLookup' => function ( MediaWikiServices $services ): EntitySourceLookup {
@@ -1757,6 +1788,30 @@ return [
 		return new ReferenceNormalizer( WikibaseRepo::getSnakNormalizer( $services ) );
 	},
 
+	'WikibaseRepo.RemoteEntityLookup' => function ( MediaWikiServices $services ): RemoteEntityLookup {
+		$httpFactory = $services->getHttpRequestFactory();
+		$entitySourceDefinitions = WikibaseRepo::getEntitySourceDefinitions( $services );
+		$store = $services->get( 'WikibaseRepo.RemoteEntityStore' );
+
+		return new RemoteEntityLookup( $httpFactory, $entitySourceDefinitions, $store );
+	},
+
+	'WikibaseRepo.RemoteEntitySearchClient' =>
+		static function ( MediaWikiServices $services ): RemoteEntitySearchClient {
+			return new RemoteEntitySearchClient(
+				$services->getHttpRequestFactory(),
+				WikibaseRepo::getEntitySourceDefinitions( $services )
+			);
+	},
+
+	'WikibaseRepo.RemoteEntityStore' => function ( MediaWikiServices $services ): RemoteEntityStore {
+		/** @var LBFactory $lbFactory */
+		$lbFactory = $services->getDBLoadBalancerFactory();
+		$settings = WikibaseRepo::getSettings( $services );
+
+		return new RemoteEntityStore( $lbFactory, $settings );
+	},
+
 	'WikibaseRepo.RepoDomainDbFactory' => function ( MediaWikiServices $services ): RepoDomainDbFactory {
 		$lbFactory = $services->getDBLoadBalancerFactory();
 
@@ -2110,6 +2165,57 @@ return [
 	'WikibaseRepo.ValueFormatterFactory' => function ( MediaWikiServices $services ): OutputFormatValueFormatterFactory {
 		$formatterFactoryCBs = WikibaseRepo::getDataTypeDefinitions( $services )
 			->getFormatterFactoryCallbacks( DataTypeDefinitions::PREFIXED_MODE );
+
+		$settings = WikibaseRepo::getSettings( $services );
+
+		// If federation is off, keep core behavior.
+		if ( !$settings->getSetting( 'federatedValuesEnabled' ) ) {
+			return new OutputFormatValueFormatterFactory(
+				$formatterFactoryCBs,
+				$services->getContentLanguage(),
+				WikibaseRepo::getLanguageFallbackChainFactory( $services )
+			);
+		}
+
+		$remoteLookup = $services->get( 'WikibaseRepo.RemoteEntityLookup' );
+
+		// Wrap only the wikibase-entityid formatter factory callbacks
+		foreach ( $formatterFactoryCBs as $dataTypeId => $callback ) {
+			$formatterFactoryCBs[$dataTypeId] = static function ( ...$args ) use ( $callback, $remoteLookup, $services, $dataTypeId ) {
+				// Call the original callback with whatever it expects.
+				$innerFormatter = $callback( ...$args );
+
+				// Only care about entity-id value formatters.
+				if ( !$innerFormatter instanceof EntityIdValueFormatter ) {
+					return $innerFormatter;
+				}
+
+				// First argument is the format (see WikibaseValueFormatterBuilders::newEntityIdFormatter)
+				$format = $args[0] ?? SnakFormatter::FORMAT_HTML;
+
+				// Derive language priorities from site config, not from $args.
+				$contLang = $services->getContentLanguage();
+				$contLangCode = $contLang->getCode();
+
+				// Use the same fallback chain as the rest of Wikibase.
+				$fallbackChainFactory = WikibaseRepo::getLanguageFallbackChainFactory( $services );
+				$fallbackChain = $fallbackChainFactory->newFromLanguage( $contLang );
+				$fallbackCodes = $fallbackChain->getFetchLanguageCodes();
+
+				$langCodes = array_values( array_unique( array_merge(
+					[ $contLangCode ],
+					$fallbackCodes,
+					[ 'en' ]
+				) ) );
+
+				return new RemoteEntityIdValueFormatter(
+					$innerFormatter,
+					$remoteLookup,
+					$langCodes,
+					$format
+				);
+			};
+		}
 
 		return new OutputFormatValueFormatterFactory(
 			$formatterFactoryCBs,

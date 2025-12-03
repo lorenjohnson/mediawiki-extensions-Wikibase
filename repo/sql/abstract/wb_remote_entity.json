@@ -1,0 +1,35 @@
+[
+	{
+		"name": "wb_remote_entity",
+		"comment": "Cache of remote entities fetched from other Wikibase repositories for federation.",
+		"columns": [
+			{
+				"name": "re_concept_uri",
+				"type": "string",
+				"comment": "Canonical concept URI for the remote entity (e.g. 'https://www.wikidata.org/entity/Q42').",
+				"options": { "length": 512, "notnull": true }
+			},
+			{
+				"name": "re_touched",
+				"type": "mwtimestamp",
+				"comment": "Timestamp when this remote entity record was last updated or fetched.",
+				"options": { "notnull": true }
+			},
+			{
+				"name": "re_blob",
+				"type": "blob",
+				"comment": "Full JSON representation of the remote entity as returned by wbgetentities.",
+				"options": { "length": 16777215, "notnull": true }
+			}
+		],
+		"indexes": [
+			{
+				"name": "wb_remote_entity_touched",
+				"columns": [ "re_touched" ],
+				"unique": false
+			}
+		],
+		"pk": [ "re_concept_uri" ]
+	}
+]
+
